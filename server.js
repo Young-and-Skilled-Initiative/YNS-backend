@@ -1,8 +1,10 @@
-const express = require("express");
-const connectDB = require("./config/connectDB");
+const express = require('express');
+const connectDB = require('./config/connectDB');
 const bodyParser = require('body-parser');
-const Subscriber = require("./models/subscribermodel")
-require("dotenv").config();
+require('dotenv').config();
+const Subscriber = require('./models/subscribermodel');
+const { sendMail } = require('./utils/mailer.js');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,12 +16,14 @@ connectDB();
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-app.get('/', (req, res) => {
-    res.send("Hello from YNS Newsletter")
+// Routes
+
+app.get('/api', (req, res) => {
+    res.send('Hello from YNS Newsletter')
 })
 
 // route for adding subscribers to the newsletter
-app.post('/subscribe', async (req, res) => {
+app.post('/api/subscribe', async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
@@ -34,6 +38,26 @@ app.post('/subscribe', async (req, res) => {
         res.status(400).send('Error subscribing: ' + error.message);
     }
 });
+
+app.use(express.json());
+
+// route to send email
+app.post('/api/send-email', async (req, res) => {
+  const { to, subject, text} = req.body;
+
+  try {
+    const info = await sendMail(to, subject, text);
+    res.status(200).json({ message: 'Email sent successfully', info });
+  } catch (error) {
+    res.status(500).json({ message: 'Error sending email', 
+        error: error ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : 'Unknown error', });
+  }
+});
+
+console.log(process.env.EMAIL_USER);
+console.log(process.env.EMAIL_PASSWORD);
+
+
 
 // start the server
 app.listen(PORT, () => {
