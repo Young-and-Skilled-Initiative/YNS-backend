@@ -1,17 +1,19 @@
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+
 dotenv.config();
 
 // Email transporter
-
 const transporter = nodemailer.createTransport({
-    host: 'smtp.mailgun.org',
-    port: 587,
-    secure: false,
-    auth: {
-      user: 'postmaster@sandbox47388fd5397c4b28b87890145604b111.mailgun.org',
-      pass: '98733d63dc0f94c2c9214aba0276577e-7113c52e-93acf438',
-    },
+  service: 'Gmail',
+  auth: {
+    user: process.env.PARTNER_EMAIL,
+    pass: process.env.PARTNER_EMAIL_PASSWORD,
+},
+tls:{
+    rejectUnauthorized:false
+}
+
 });
 
 // verify transporter
@@ -24,13 +26,13 @@ transporter.verify((error, success) => {
   });
 
 // Function to send an email
-const sendMail = (to, subject, text) => {
+const sendMail = async ({from = process.env.PARTNER_EMAIL, to, subject, html,}) => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to,
-    subject,
-    text,
-  };
+      from,
+      to,
+      subject,
+      html,
+  }
 
   return new Promise((resolve, reject) => {
     transporter.sendMail(mailOptions, (error, info) => {
@@ -42,5 +44,15 @@ const sendMail = (to, subject, text) => {
     });
   });
 };
+
+// sendMail({
+//   to: 'dvineonyi@gmail.com',
+//   subject: 'Hello this is a test mail',
+//   html: 'Hello from Divine',
+// }).then((info) => {
+//   console.log('Success:', info);
+// }).catch((error) => {
+//   console.error('Error:', error);
+// });
 
 module.exports = { sendMail };

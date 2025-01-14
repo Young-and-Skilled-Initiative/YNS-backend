@@ -1,7 +1,9 @@
 const express = require('express');
 const connectDB = require('./config/connectDB');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 require('dotenv').config();
+
 const Subscriber = require('./models/subscribermodel');
 const { sendMail } = require('./utils/mailer.js');
 
@@ -15,15 +17,17 @@ connectDB();
 // middleware
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cors());
+
 
 // Routes
 
-app.get('/api', (req, res) => {
+app.get('/', (req, res) => {
     res.send('Hello from YNS Newsletter')
 })
 
 // route for adding subscribers to the newsletter
-app.post('/api/subscribe', async (req, res) => {
+app.post('/subscribe', async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
@@ -39,23 +43,40 @@ app.post('/api/subscribe', async (req, res) => {
     }
 });
 
-app.use(express.json());
+app.post('/send-mail', async (req, res) => {
+    const { to, subject, text, html } = req.body;
+  
+    // Validation: Ensure required fields are provided
+    if (!to || !subject || (!text && !html)) {
+      return res.status(400).json({ message: 'Missing required fields: to, subject, and either text or html' });
+    }
+    try {
+      // Call the sendMail function
+      const info = await sendMail({
+        to,
+        subject,
+        html: html || `<p>${text}</p>`, // Default to text if HTML is not provided
+      });
+      // Success response
+      res.status(200).json({
+        message: 'Email sent successfully',
+        info,
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      // Error response
+      res.status(500).json({
+        message: 'Error sending email',
+        error: {
+          message: error.message,
+          stack: error.stack,
+        },
+      });
+    }
+  });
 
-// route to send email
-app.post('/api/send-email', async (req, res) => {
-  const { to, subject, text} = req.body;
-
-  try {
-    const info = await sendMail(to, subject, text);
-    res.status(200).json({ message: 'Email sent successfully', info });
-  } catch (error) {
-    res.status(500).json({ message: 'Error sending email', 
-        error: error ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : 'Unknown error', });
-  }
-});
-
-console.log(process.env.EMAIL_USER);
-console.log(process.env.EMAIL_PASSWORD);
+console.log(process.env.PARTNER_EMAIL);
+console.log(process.env.PARTNER_EMAIL_PASSWORD);
 
 
 
