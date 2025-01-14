@@ -5,19 +5,13 @@ dotenv.config();
 // Email transporter
 
 const transporter = nodemailer.createTransport({
-    service: 'smtp.gmail.com',
-    port: 465,
+    host: 'smtp.mailgun.org',
+    port: 587,
     secure: false,
-    family: 4,
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
+      user: 'postmaster@sandbox47388fd5397c4b28b87890145604b111.mailgun.org',
+      pass: '98733d63dc0f94c2c9214aba0276577e-7113c52e-93acf438',
     },
-    tls: {
-        rejectUnauthorized: false,
-    },
-    debug: true,
-    logger: true
 });
 
 // verify transporter
