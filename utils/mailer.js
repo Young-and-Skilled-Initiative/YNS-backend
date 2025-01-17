@@ -26,33 +26,64 @@ transporter.verify((error, success) => {
   });
 
 // Function to send an email
-const sendMail = async ({from = process.env.PARTNER_EMAIL, to, subject, html,}) => {
+const sendMail = async ({from = process.env.PARTNER_EMAIL, recipient, subject, html,}) => {
   const mailOptions = {
       from,
-      to,
+      to: recipient,
       subject,
       html,
   }
 
-  return new Promise((resolve, reject) => {
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(info);
-      }
-    });
-  });
+  return transporter.sendMail(mailOptions);
 };
 
-// sendMail({
-//   to: 'dvineonyi@gmail.com',
-//   subject: 'Hello this is a test mail',
-//   html: 'Hello from Divine',
-// }).then((info) => {
-//   console.log('Success:', info);
-// }).catch((error) => {
-//   console.error('Error:', error);
-// });
+// async function sendBulkEmails(subscribers) {
+//   const emailPromises = subscribers.map( async (subscriber) => {
+//     try {
+//       console.log("Sending email to:", subscriber.email); // Debug log
+//       const subject = "Newsletter Update";
+//       const text = `Hi ${subscriber.name},\n\nThank you for staying connected. Here's our latest update!\n\nBest regards,\nYour Team`;
+//       const html = `<p>Hi <b>${subscriber.name}</b>,</p><p>Thank you for staying connected. Here's our latest update!</p><p>Best regards,<br>Your Team</p>`;
 
-module.exports = { sendMail };
+//       await sendMail(subscriber.email, subject, text, html);
+//       console.log(`Email sent to: ${subscriber.email}`); // Debug log
+//     } catch (error) {
+//       console.error(`Error sending email to ${subscriber.email}:`, error); // Debug log
+//     }
+//   });
+
+//   return Promise.all(emailPromises);
+// }
+
+async function sendBulkEmails(subscribers) {
+  const validSubscribers = subscribers.filter((subscriber) => {
+    if (!subscriber.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(subscriber.email)) {
+      console.warn(`Skipping invalid or missing email for subscriber: ${subscriber.name}`);
+      return false;
+    }
+    return true;
+  });
+
+  if (validSubscribers.length === 0) {
+    console.log("No valid subscribers found.");
+    return;
+  }
+
+  const emailPromises = validSubscribers.map(async (subscriber) => {
+    try {
+      const subject = "Newsletter Update";
+      const text = `Hi ${subscriber.name},\n\nThank you for staying connected. Here's our latest update!\n\nBest regards,\nYour Team`;
+      const html = `<p>Hi <b>${subscriber.name}</b>,</p><p>Thank you for staying connected. Here's our latest update!</p><p>Best regards,<br>Your Team</p>`;
+
+      await sendMail(subscriber.email, subject, text, html);
+      console.log(`Email sent to: ${subscriber.email}`);
+    } catch (error) {
+      console.error(`Error sending email to ${subscriber.email}:`, error);
+    }
+  });
+
+  return Promise.all(emailPromises);
+}
+
+
+module.exports = { sendMail, sendBulkEmails };

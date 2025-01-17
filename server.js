@@ -5,7 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const Subscriber = require('./models/subscribermodel');
-const { sendMail } = require('./utils/mailer.js');
+const { sendMail, sendBulkEmails } = require('./utils/mailer.js');
 
 
 const app = express();
@@ -43,10 +43,11 @@ app.post('/subscribe', async (req, res) => {
     }
 });
 
+// route to send email to a single subscriber
 app.post('/send-mail', async (req, res) => {
-    const { to, subject, text, html } = req.body;
+    const { to, subject, html } = req.body;
   
-    // Validation: Ensure required fields are provided
+    // Validation to ensure required fields are provided
     if (!to || !subject || (!text && !html)) {
       return res.status(400).json({ message: 'Missing required fields: to, subject, and either text or html' });
     }
@@ -75,9 +76,21 @@ app.post('/send-mail', async (req, res) => {
     }
   });
 
-console.log(process.env.PARTNER_EMAIL);
-console.log(process.env.PARTNER_EMAIL_PASSWORD);
+// Route to send emails to all subscribers
+app.post("/send-emails", async (req, res) => {
+  try {
+    const subscribers = await Subscriber.find(); // Get all subscribers
+    if (subscribers.length === 0) {
+      return res.status(404).send({ message: "No subscribers found!" });
+    }
 
+    await sendBulkEmails(subscribers); // Use the service to send emails
+    res.send({ message: "Emails sent successfully!" });
+  } catch (error) {
+    console.error("Error sending emails:", error);
+    res.status(500).send({ message: "Failed to send emails.", error });
+  }
+});
 
 
 // start the server
