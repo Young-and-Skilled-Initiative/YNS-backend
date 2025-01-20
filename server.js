@@ -5,7 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const Subscriber = require('./models/subscribermodel');
-const { sendMail, sendBulkEmails } = require('./utils/mailer.js');
+const { sendBulkMails, sendMailWithAttachment } = require('./utils/mailer.js');
 
 
 const app = express();
@@ -22,6 +22,7 @@ app.use(cors());
 
 // Routes
 
+// root route
 app.get('/', (req, res) => {
     res.send('Hello from YNS Newsletter')
 })
@@ -43,55 +44,102 @@ app.post('/subscribe', async (req, res) => {
     }
 });
 
-// route to send email to a single subscriber
-app.post('/send-mail', async (req, res) => {
-    const { to, subject, html } = req.body;
-  
-    // Validation to ensure required fields are provided
-    if (!to || !subject || (!text && !html)) {
-      return res.status(400).json({ message: 'Missing required fields: to, subject, and either text or html' });
-    }
-    try {
-      // Call the sendMail function
-      const info = await sendMail({
-        to,
-        subject,
-        html: html || `<p>${text}</p>`, // Default to text if HTML is not provided
-      });
-      // Success response
-      res.status(200).json({
-        message: 'Email sent successfully',
-        info,
-      });
-    } catch (error) {
-      console.error('Error sending email:', error);
-      // Error response
-      res.status(500).json({
-        message: 'Error sending email',
-        error: {
-          message: error.message,
-          stack: error.stack,
-        },
-      });
-    }
-  });
-
-// Route to send emails to all subscribers
-app.post("/send-emails", async (req, res) => {
+// route to fetch all subscribers
+app.get('/subscribers', async (req, res) => {
   try {
-    const subscribers = await Subscriber.find(); // Get all subscribers
-    if (subscribers.length === 0) {
-      return res.status(404).send({ message: "No subscribers found!" });
-    }
+    // Fetch all subscribers from the database
+    const subscribers = await Subscriber.find();
 
-    await sendBulkEmails(subscribers); // Use the service to send emails
-    res.send({ message: "Emails sent successfully!" });
+    // Return the subscribers as a JSON response
+    res.status(200).json({ success: true, data: subscribers });
   } catch (error) {
-    console.error("Error sending emails:", error);
-    res.status(500).send({ message: "Failed to send emails.", error });
+    console.error("Error fetching subscribers:", error.message);
+    res.status(500).json({ success: false, message: "Failed to fetch subscribers." });
   }
 });
 
+// Route to send emails to all subscribers
+app.post('/send-mails', async (req, res) => {
+  try {
+    // Fetch subscribers from the database
+    const subscribers = await Subscriber.find();
+
+    if (subscribers.length === 0) {
+      return res.status(404).json({ message: "No subscribers found." });
+    }
+
+    console.log("Fetched Subscribers:", subscribers); // Log to debug
+
+    await sendBulkMails(subscribers);
+    res.status(200).json({ message: "Emails processed successfully." });
+  } catch (error) {
+    console.error("Error processing emails:", error.message);
+    res.status(500).json({ message: "Failed to process emails.", error: error.message });
+  }
+});
+
+// Route to send email with an attachment to all subscribers
+app.post('/send-mail-with-attachment', async (req, res) => {
+  const { subject, html, attachmentPath } = req.body;
+
+  if (!subject || !html) {
+    return res.status(400).send('Subject and HTML content are required');
+  }
+
+  try {
+    // Fetch all active subscribers from the database
+    const subscribers = await Subscriber.find({ unsubscribed: false });
+
+    if (subscribers.length === 0) {
+      return res.status(404).json({ message: 'No subscribers found.' });
+    }
+
+    const emailPromises = subscribers.map(async (subscriber) => {
+      // Send email with attachment to each subscriber
+      await sendMailWithAttachment({
+        recipient: subscriber.email,
+        subject,
+        html,
+        attachmentPath, // Attach the file to the email
+      });
+    });
+
+    // Wait for all emails to be sent
+    await Promise.all(emailPromises);
+
+    res.status(200).json({ message: 'Emails with attachment sent successfully.' });
+  } catch (error) {
+    console.error('Error sending emails with attachment:', error);
+    res.status(500).json({ message: 'Error sending emails with attachment', error: error.message });
+  }
+});
+
+
+// Route to handle unsubscribing
+app.get('/unsubscribe', async (req, res) => {
+  const email = decodeURIComponent(req.query.email);
+
+  if (!email) {
+    return res.status(400).json({ message: 'Invalid email address' });
+  }
+
+  try {
+    const subscriber = await Subscriber.findOne({ email });
+
+    if (!subscriber) {
+      return res.status(404).json({ message: 'Subscriber not found' });
+    }
+
+    // Mark the subscriber as unsubscribed
+    subscriber.unsubscribed = true;
+    await subscriber.save();
+
+    res.status(200).json({ message: 'You have successfully unsubscribed.' });
+  } catch (error) {
+    console.error('Error unsubscribing:', error);
+    res.status(500).json({ message: 'Error unsubscribing' });
+  }
+});
 
 // start the server
 app.listen(PORT, () => {
