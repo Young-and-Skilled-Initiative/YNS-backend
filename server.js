@@ -3,63 +3,77 @@ const connectDB = require('./config/connectDB');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
-
 const Subscriber = require('./models/subscribermodel');
-const { sendBulkMails, sendMailWithAttachment } = require('./utils/mailer.js');
+const MovementSubscriber = require("./models/joinMovementModel.js");
+const { sendMail, sendBulkMails, sendMailWithAttachment, sendBulkMailsWithAttachment } = require('./utils/mailer.js');
 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// connecting to the database
+// CONNECTION TO THE DATABASE
 connectDB();
 
-// middleware
+// MIDDLEWARE
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
 
 
-// Routes
+// ROUTE
 
 // root route
 app.get('/', (req, res) => {
     res.send('Hello from YNS Newsletter')
 })
 
-// route for adding subscribers to the newsletter
-app.post('/subscribe', async (req, res) => {
-    const { email } = req.body;
 
-    if (!email) {
+// ROUTE TO ADD SUBSCRIBERS TO DATABASE 
+// AND TO SEND WELCOME EMAIL
+app.post('/subscribe', async (req, res) => {
+    const { email, name} = req.body;
+
+    if (!email || !name) {
         return res.status(400).send('Email is required');
     }
 
     try {
-        const subscriber = new Subscriber({ email });
-        await subscriber.save();
-        res.status(201).send('Subscription successful');
+
+      const existingSubscriber = await Subscriber.findOne({ email });
+        if (existingSubscriber) {
+            return res.status(409).send('You are already subscribed.');
+        }
+
+        const subscriber = new Subscriber({
+          email: req.body.email,
+          name: req.body.name,
+        });
+      await subscriber.save();
+        
+      const templateName = "welcome_email";
+      const placeholders = {
+        subscriberEmail: email,
+        subscriberName: name || "Subscriber",
+        companyName: "Young And Skilled Initiative",
+      };
+
+      await sendMail({
+        recipient: email,
+        subject: 'Welcome to Our Newsletter!',
+        templateName,
+        placeholders,
+    });
+
+    res.status(201).send('Subscription successful. Welcome email sent');
+
     } catch (error) {
         res.status(400).send('Error subscribing: ' + error.message);
     }
 });
 
-// route to fetch all subscribers
-app.get('/subscribers', async (req, res) => {
-  try {
-    // Fetch all subscribers from the database
-    const subscribers = await Subscriber.find();
 
-    // Return the subscribers as a JSON response
-    res.status(200).json({ success: true, data: subscribers });
-  } catch (error) {
-    console.error("Error fetching subscribers:", error.message);
-    res.status(500).json({ success: false, message: "Failed to fetch subscribers." });
-  }
-});
-
-// Route to send emails to all subscribers
-app.post('/send-mails', async (req, res) => {
+// ROUTE TO SEND EMAILS TO ALL NEWSLETTER SUBSCRIBERS
+app.post('/send-newsletter', async (req, res) => {
   try {
     // Fetch subscribers from the database
     const subscribers = await Subscriber.find();
@@ -70,52 +84,107 @@ app.post('/send-mails', async (req, res) => {
 
     console.log("Fetched Subscribers:", subscribers); // Log to debug
 
-    await sendBulkMails(subscribers);
+    const subject = "Our Latest Updates!";
+    const placeholders = {
+      companyName: "Young And Skilled Initiative",
+    };
+
+    await sendBulkMails(subscribers, subject, "newsletter_template", placeholders);
+
     res.status(200).json({ message: "Emails processed successfully." });
+
   } catch (error) {
     console.error("Error processing emails:", error.message);
     res.status(500).json({ message: "Failed to process emails.", error: error.message });
   }
 });
 
-// Route to send email with an attachment to all subscribers
-app.post('/send-mail-with-attachment', async (req, res) => {
-  const { subject, html, attachmentPath } = req.body;
 
-  if (!subject || !html) {
-    return res.status(400).send('Subject and HTML content are required');
+// ROUTE TO SEND BULK EMAILS TO NEWSLETTER SUBSCRIBERS WITH ATTACHMENTS
+app.post('/send-newsletter-attachment', async (req, res) => {
+  const { subject, templateName, placeholders, attachmentPath } = req.body;
+
+  if (!subject || !templateName || !placeholders) {
+    return res.status(400).send("Subject, template name, and placeholders are required.");
   }
 
   try {
-    // Fetch all active subscribers from the database
-    const subscribers = await Subscriber.find({ unsubscribed: false });
+    // Fetch all active newsletter subscribers (you can change this query to match your data model)
+    const subscribers = await NewsletterSubscriber.find({ unsubscribed: false });
 
     if (subscribers.length === 0) {
-      return res.status(404).json({ message: 'No subscribers found.' });
+      return res.status(404).json({ message: "No active newsletter subscribers found." });
     }
 
-    const emailPromises = subscribers.map(async (subscriber) => {
-      // Send email with attachment to each subscriber
-      await sendMailWithAttachment({
-        recipient: subscriber.email,
-        subject,
-        html,
-        attachmentPath, // Attach the file to the email
-      });
-    });
+    console.log("Fetched Newsletter Subscribers:", subscribers);
 
-    // Wait for all emails to be sent
-    await Promise.all(emailPromises);
+    // Send the bulk email with attachments to all subscribers
+    const result = await sendBulkMailsWithAttachment(
+      subscribers, subject, templateName, placeholders, attachmentPath
+    );
 
-    res.status(200).json({ message: 'Emails with attachment sent successfully.' });
+    if (!result.success) {
+      return res.status(400).json({ message: result.message });
+    }
+
+    res.status(200).json({ message: "Newsletter emails with attachment sent successfully." });
+
   } catch (error) {
-    console.error('Error sending emails with attachment:', error);
-    res.status(500).json({ message: 'Error sending emails with attachment', error: error.message });
+    console.error("Error sending newsletter emails:", error.message);
+    res.status(500).json({ message: "Error sending newsletter emails", error: error.message });
   }
 });
 
 
-// Route to handle unsubscribing
+
+// ROUTE TO ALLOW SUBSCRIBERS JOIN THE MOVEMENT
+app.post("/join-movement", async (req, res) => {
+  const { name, email} = req.body;
+
+  if (!name || !email) {
+    return res.status(400).send("Email is required");
+  }
+
+  try {
+
+    const existingSubscriber = await Subscriber.findOne({ email });
+        if (existingSubscriber) {
+            return res.status(409).send('You are already subscribed.');
+        }
+
+    const subscriber = new MovementSubscriber({
+      name: req.body.name,
+      email: req.body.email,
+    });
+    await subscriber.save();
+
+    
+    const subject = "Welcome to the Movement!";
+    const templateName = "movement_welcome"; 
+    const placeholders = { 
+      subscriberName: name || "Subscriber", 
+      subscriberEmail: email, 
+      movementName: "Join the Movement" 
+    };
+    const attachmentPath = "./assets/movement-guide.pdf"; // Example attachment
+
+
+    await sendMailWithAttachment({
+      recipient: email,
+      subject,
+      templateName,
+      placeholders,
+      attachmentPath,
+    });
+
+    res.status(201).send("Subscription successful. Welcome email sent.");
+  } catch (error) {
+    res.status(400).send("Error subscribing: " + error.message);
+  }
+});
+
+
+// ROUTE TO HANDLE UNSUBSCRIBING
 app.get('/unsubscribe', async (req, res) => {
   const email = decodeURIComponent(req.query.email);
 
