@@ -3,7 +3,8 @@ require("dotenv").config;
 
 
 const MovementSubscriberSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
+  name: {type: String, required: true, },
+  email: { type: String, required: true, unique: true, match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
   unsubscribed: { type: Boolean, default: false },
 });
 
