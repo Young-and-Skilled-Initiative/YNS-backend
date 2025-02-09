@@ -7,7 +7,7 @@ dotenv.config();
 const Subscriber = require('../models/subscribermodel');
 const SentMail = require('../models/sentMailModel');
 const MovementSubscriber = require("../models/joinMovementModel");
-const { isUtf8 } = require('buffer');
+// const { isUtf8 } = require('buffer');
 
 
 // EMAIL TRANSPORTER
