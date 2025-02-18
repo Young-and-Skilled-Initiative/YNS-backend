@@ -1,9 +1,7 @@
 const nodemailer = require('nodemailer');
-const fs = require('fs');
 const dotenv = require('dotenv');
-const path = require('path');
-
 dotenv.config();
+
 const Subscriber = require('../models/subscribermodel');
 const SentMail = require('../models/sentMailModel');
 const MovementSubscriber = require("../models/joinMovementModel");
@@ -42,28 +40,26 @@ const generateUnsubscribeLink = (email) => {
 
 
 // FUNCTION TO LOAD TEMPLATE
-function loadTemplate (templateName, placeholders) {
+// function loadTemplate (templateName, placeholders) {
 
-  const templatePath = path.join(__dirname, 'templates', `${templateName}.html`);
+//   const templatePath = path.join(__dirname, 'templates', `${templateName}.html`);
+//   const templateSource = fs.readFileSync(templatePath, 'utf8');
+//   const template = handlebars.compile(templateSource);
 
+//   // To replace placeholders with actual values
+//   Object.keys(placeholders).forEach((key) => {
+//     const regex = new RegExp(`{{${key}}}`, 'g'); 
+//     template = template.replace(regex, placeholders[key]);
+//   });
 
-  let template = fs.readFileSync(templatePath, 'Utf8');
-
-  // To replace placeholders with actual values
-  Object.keys(placeholders).forEach((key) => {
-    const regex = new RegExp(`{{${key}}}`, 'g'); 
-    template = template.replace(regex, placeholders[key]);
-  });
-
-  return template;
-
-}
+//   return template;
+// }
 
 
 // FUNCTION TO SEND EMAIL
-const sendMail = async ({recipient = Subscriber.email, subject, templateName, placeholders, attachments = []}) => {
+const sendMail = async ({recipient = Subscriber.email, subject, htmlContent}) => {
 
-  const emailBody = loadTemplate(templateName, placeholders);
+  // const emailBody = loadTemplate(templateName, placeholders);
 
   if (!recipient) {
     console.error("Recipient email is required!");
@@ -74,8 +70,7 @@ const sendMail = async ({recipient = Subscriber.email, subject, templateName, pl
       from:  process.env.PARTNER_EMAIL,
       to: recipient,
       subject,
-      html : emailBody,
-      attachments,
+      html: htmlContent,
   }
 
   try {
@@ -85,7 +80,7 @@ const sendMail = async ({recipient = Subscriber.email, subject, templateName, pl
     const sentMail = new SentMail({
       recipient,
       subject,
-      html,
+      html: htmlContent,
       status: 'sent',
     });
     await sentMail.save();
@@ -99,7 +94,7 @@ const sendMail = async ({recipient = Subscriber.email, subject, templateName, pl
     const sentMail = new SentMail({
       recipient,
       subject,
-      html,
+      htmlContent,
       status: 'failed',
     });
     await sentMail.save();
@@ -119,7 +114,7 @@ const sendMail = async ({recipient = Subscriber.email, subject, templateName, pl
 
 
 // FUNCTION TO SEND BULK MAILS
-const sendBulkMails = async (subscribers, subject, templateName, placeholders) => {
+const sendBulkMails = async (subscribers, subject, htmlContent) => {
   const validSubscribers = subscribers.filter((subscriber) => {
     return (
       subscriber.email &&
@@ -136,18 +131,17 @@ const sendBulkMails = async (subscribers, subject, templateName, placeholders) =
   const emailPromises = validSubscribers.map(async (subscriber) => {
     try {
 
-      const personalizedPlaceholders = { ...placeholders, subscriberName: subscriber.name, subscriberEmail: subscriber.email };
+      // const personalizedPlaceholders = { ...placeholders, subscriberName: subscriber.name, subscriberEmail: subscriber.email };
 
-      console.log("Sending email to:", subscriber.email);
-      console.log("Subject:", subject);
-      console.log("Personalized Placeholders:", personalizedPlaceholders);
+      // console.log("Sending email to:", subscriber.email);
+      // console.log("Subject:", subject);
+      // console.log("Personalized Placeholders:", personalizedPlaceholders);
 
 
       await sendMail({
         recipient: subscriber.email,
         subject,
-        templateName,
-        placeholders: personalizedPlaceholders,
+        htmlContent
       });
 
     } catch (error) {

@@ -34,7 +34,7 @@ app.post('/subscribe', async (req, res) => {
     const { email, name} = req.body;
 
     if (!email || !name) {
-        return res.status(400).send('Email is required');
+        return res.status(400).send('Email and Name are required');
     }
 
     try {
@@ -44,27 +44,29 @@ app.post('/subscribe', async (req, res) => {
             return res.status(409).send('You are already subscribed.');
         }
 
-        const subscriber = new Subscriber({
-          email: req.body.email,
-          name: req.body.name,
-        });
+      const subscriber = new Subscriber({
+        email: req.body.email,
+        name: req.body.name,
+      });
       await subscriber.save();
+
+      res.status(201).send("Subscription successful");
         
-      const templateName = "welcome_email";
-      const placeholders = {
-        subscriberEmail: email,
-        subscriberName: name || "Subscriber",
-        companyName: "Young And Skilled Initiative",
-      };
+      const htmlContent = `
+            <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: Arial, sans-serif; text-align: center;">
+                <h2 style="color: #007bff;">Welcome, ${name}!</h2>
+                <p>Thank you for subscribing to <strong>Young and Skilled Initiative</strong>.</p>
+                <p>We are excited to have you on board!</p>
+                <p>Stay tuned for updates and opportunities.</p>
+                <p style="font-size: 14px; color: #777; margin-top: 20px;">&copy; ${new Date().getFullYear()} Young and Skilled Initiative. All rights reserved.</p>
+            </div>
+        `;
 
       await sendMail({
         recipient: email,
         subject: 'Welcome to Our Newsletter!',
-        templateName,
-        placeholders,
-    });
-
-    res.status(201).send('Subscription successful. Welcome email sent');
+        htmlContent
+    }).catch(err => console.log("error sending welcome email", err));
 
     } catch (error) {
         res.status(400).send('Error subscribing: ' + error.message);
