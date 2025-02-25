@@ -20,7 +20,7 @@ app.use(cors());
 
 // ROUTE
 
-app.get("/api", (req, res) => {
+app.get("/", (req, res) => {
     res.send("Welcome to YNS newsletter and join the movemnt API");
 })
 
