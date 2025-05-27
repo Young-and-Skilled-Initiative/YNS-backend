@@ -1,40 +1,353 @@
 const NewsletterSubscriber = require("../models/newsletterSubscribermodel");
+const NewsletterSend = require("../models/newsletterSendModel"); // 🆕 NEW MODEL IMPORT
 const sendMail = require("../utils/mailer");
+
+/**
+ * Generate the welcome email HTML template
+ */
+const generateWelcomeEmailTemplate = (name) => {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young and Skilled Newsletter</title>
+    <style>
+        @font-face {
+            font-family: 'Cocon';
+            src: url('https://res.cloudinary.com/dwjnkuvqv/raw/upload/v1748245946/CoconRegularFont_jevejx.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Manrope';
+            src: url('https://res.cloudinary.com/dwjnkuvqv/raw/upload/v1748245947/Manrope-Regular_mjyrxx.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2d5f4f 0%, #4a8c6f 100%);
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/email-bg_qkmzzs.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            color: white;
+        }
+
+        .header h1 {
+            font-family: 'Cocon', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 28px;
+            font-weight: normal;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .star-top {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/star2_gx3m3s.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+            background-color: white;
+            position: relative;
+        }
+
+        .thank-you {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .welcome-text {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .benefits-intro {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .benefits-list {
+            list-style: none;
+            margin: 20px 0;
+        }
+
+        .benefits-list li {
+            color: #666;
+            margin-bottom: 8px;
+            font-size: 14px;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .benefits-list li:before {
+            content: "✅";
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .exclusive-text {
+            color: #666;
+            margin: 25px 0;
+            font-size: 14px;
+        }
+
+        .join-button {
+            background: linear-gradient(135deg, #2d5f4f 0%, #4a8c6f 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin: 25px 0;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+
+        .join-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .closing {
+            color: #666;
+            margin: 25px 0 10px 0;
+            font-size: 14px;
+        }
+
+        .signature {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .logo {
+            margin: 30px 0;
+        }
+
+        .logo img {
+            height: 40px;
+        }
+
+        .social-icons {
+            display: flex;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .social-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            overflow: hidden;
+        }
+
+        .social-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .social-icon.twitter {
+            background-color: #1DA1F2;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .unsubscribe {
+            color: #999;
+            font-size: 12px;
+            margin: 20px 0 10px 0;
+        }
+
+        .unsubscribe a {
+            color: #ffa500;
+            text-decoration: none;
+        }
+
+        .copyright {
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+
+        .star-bottom {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 30px;
+            height: 30px;
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/star2_gx3m3s.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .star-middle {
+            position: absolute;
+            top: 50%;
+            right: 50px;
+            transform: translateY(-50%);
+            width: 25px;
+            height: 25px;
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/star-green_u7diff.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 1;
+        }
+
+        /* Hide green star on mobile */
+        @media (max-width: 768px) {
+            .star-middle {
+                display: none;
+            }
+        }
+
+        .footer {
+            position: relative;
+            padding-bottom: 60px;
+        }
+        .name{
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="star-top"></div>
+            <h1>Welcome to the Young and<br>Skilled Newsletter!</h1>
+        </div>
+        
+        <div class="content">
+            <div class="bird-decoration"></div>
+            
+            <h2 class="thank-you">Thank you for subscribing to the Young and Skilled Initiative! 🎉</h2>
+            
+            <p class="welcome-text">Welcome <span class='name'>${name}</span>!</p>
+            
+            <p class="benefits-intro">You're officially part of our journey to empower young professionals to learn, grow, and connect.</p>
+            
+            <p class="benefits-intro">Here's what you can look forward to:</p>
+            
+            <ul class="benefits-list">
+                <li>Fresh tips on skill development</li>
+                <li>Updates on mentorship programs and networking opportunities</li>
+                <li>Insightful stories and resources to help you thrive</li>
+            </ul>
+            
+            <p class="exclusive-text">If you'd like to join our growing community and get access to even more exclusive resources, events, and mentorship opportunities, just click below!</p>
+            
+            <a href="#" class="join-button">Join Community</a>
+            
+            <p class="closing">Can't wait to see what you'll achieve next!</p>
+            <p class="signature">Cheers,<br>The Young and Skilled Initiative Team</p>
+            
+            <div class="logo">
+                <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/logo_bydem0.png" alt="Young & Skilled Logo">
+            </div>
+            
+            <div class="social-icons">
+                <a href="#" class="social-icon">
+                    <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244987/Facebook_hckslw.png" alt="Facebook">
+                </a>
+                <a href="#" class="social-icon">
+                    <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Linkedin_fbhbqj.png" alt="LinkedIn">
+                </a>
+                <a href="#" class="social-icon">
+                    <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Instagram_jj5rv6.png" alt="Instagram">
+                </a>
+            </div>
+            
+            <div class="footer">
+                <p class="unsubscribe">Don't want to receive these emails anymore? <a href="#">Unsubscribe here</a></p>
+                <p class="copyright">Copyright © ${new Date().getFullYear()} Young & Skilled Initiative</p>
+                <div class="star-bottom"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
 
 /**
  * Subscribe to the newsletter.
  */
 const subscribeToNewsletter = async (req, res) => {
   const { name, email } = req.body;
-
+  
   if (!name || !email) {
     return res.status(400).json({ message: "Name and email are required" });
   }
-
+  
   try {
     const existingSubscriber = await NewsletterSubscriber.findOne({ email });
     if (existingSubscriber) {
       return res.status(409).json({ message: "Already subscribed." });
     }
-
+    
     const newSubscriber = new NewsletterSubscriber({ name, email });
     await newSubscriber.save();
 
-    const htmlContent = `
-      <div style="text-align: center; font-family: Arial, sans-serif;">
-      <h2>Welcome, ${name}!</h2>
-      <p>Thank you for subscribing to <strong>Young and Skilled Initiative</strong>.</p>
-      <p>We are excited to have you on board!</p>
-      <p>Stay tuned for updates and opportunities.</p>
-      <p style="font-size: 14px; color: #777; margin-top: 20px;">&copy; ${new Date().getFullYear()} Young and Skilled Initiative. All rights reserved.</p>
-    </div>
-`;
+    // Use the professional HTML template
+    const htmlContent = generateWelcomeEmailTemplate(name);
+
     await sendMail({ 
         recipient: email, 
-        subject: "Welcome!", 
+        subject: "Welcome to Young and Skilled Initiative! 🎉", 
         htmlContent 
     });
-
+    
     res.status(201).json({ message: "Subscribed successfully." });
   } catch (error) {
     res.status(500).json({ message: "Error subscribing", error: error.message });
@@ -42,35 +355,374 @@ const subscribeToNewsletter = async (req, res) => {
 };
 
 /**
- * Send bulk newsletters to all subscribers.
+ * Generate the bulk newsletter HTML template
+ */
+const generateBulkNewsletterTemplate = (headerText, bodyText, subText) => {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young and Skilled Newsletter</title>
+    <style>
+        @font-face {
+            font-family: 'Cocon';
+            src: url('https://res.cloudinary.com/dwjnkuvqv/raw/upload/v1748245946/CoconRegularFont_jevejx.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Manrope';
+            src: url('https://res.cloudinary.com/dwjnkuvqv/raw/upload/v1748245947/Manrope-Regular_mjyrxx.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2d5f4f 0%, #4a8c6f 100%);
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/email-bg_qkmzzs.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            color: white;
+        }
+
+        .header h1 {
+            font-family: 'Cocon', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 28px;
+            font-weight: normal;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .star-top {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/star2_gx3m3s.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+            background-color: white;
+            position: relative;
+        }
+
+        .main-content {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .body-text {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .sub-text {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .closing {
+            color: #666;
+            margin: 25px 0 10px 0;
+            font-size: 14px;
+        }
+
+        .signature {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .logo {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .logo img {
+            height: 40px;
+        }
+
+        .social-icons {
+            display: flex;
+            gap: 15px;
+            margin: 30px 0;
+            justify-content: center;
+        }
+
+        .social-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            overflow: hidden;
+        }
+
+        .social-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .unsubscribe {
+            color: #999;
+            font-size: 12px;
+            margin: 20px 0 10px 0;
+            text-align: center;
+        }
+
+        .unsubscribe a {
+            color: #ffa500;
+            text-decoration: none;
+        }
+
+        .copyright {
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .star-bottom {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 30px;
+            height: 30px;
+            background-image: url('https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748243700/star2_gx3m3s.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .footer {
+            position: relative;
+            padding-bottom: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="star-top"></div>
+            <h1>${headerText}</h1>
+        </div>
+        
+        <div class="content">
+            <div class="main-content">${bodyText}</div>
+            <div class="sub-text">${subText}</div>
+            
+            <p class="closing">Keep growing and stay skilled!</p>
+            <p class="signature">Best regards,<br>The Young and Skilled Initiative Team</p>
+            
+            <div class="logo">
+                <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/logo_bydem0.png" alt="Young & Skilled Logo">
+            </div>
+            
+            <div class="social-icons">
+                <a href="#" class="social-icon">
+                    <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244987/Facebook_hckslw.png" alt="Facebook">
+                </a>
+                <a href="#" class="social-icon">
+                    <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Linkedin_fbhbqj.png" alt="LinkedIn">
+                </a>
+                <a href="#" class="social-icon">
+                    <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Instagram_jj5rv6.png" alt="Instagram">
+                </a>
+            </div>
+            
+            <div class="footer">
+                <p class="unsubscribe">Don't want to receive these emails anymore? <a href="#">Unsubscribe here</a></p>
+                <p class="copyright">Copyright © ${new Date().getFullYear()} Young & Skilled Initiative</p>
+                <div class="star-bottom"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
+
+/**
+ * Send bulk newsletters to all subscribers (🔧 UPDATED WITH TRACKING)
  */
 const sendBulkNewsletter = async (req, res) => {
+  const { subject, headerText, bodyText, subText } = req.body;
   
-    try {
-      // Fetch all active subscribers
-      const subscribers = await NewsletterSubscriber.find({ unsubscribed: false });
-  
-      if (subscribers.length === 0) {
-        return res.status(404).json({ message: "No active subscribers found." });
-      }
+  // Validate required fields
+  if (!subject || !headerText || !bodyText) {
+    return res.status(400).json({ 
+      message: "Subject, header text, and body text are required" 
+    });
+  }
 
-      const subject = "Latest Newsletter!";
-      const htmlContent = "<h2>Stay Updated!</h2><p>Here is your latest newsletter.</p>";
+  try {
+    // Fetch all active subscribers
+    const subscribers = await NewsletterSubscriber.find({ 
+      $or: [
+        { unsubscribed: { $exists: false } },
+        { unsubscribed: false }
+      ]
+    });
 
-      // Send emails to all subscribers
-      for (const subscriber of subscribers) {
-        await sendMail({
-          recipient: subscriber.email,
-          subject,
-          htmlContent,
-        });
-      }
-  
-      res.status(200).json({ message: "Newsletter sent successfully to all subscribers." });
-    } catch (error) {
-      console.error("Error sending bulk newsletter:", error);
-      res.status(500).json({ message: "Error sending newsletter.", error: error.message });
+    if (subscribers.length === 0) {
+      return res.status(404).json({ message: "No active subscribers found." });
     }
-  };
 
-module.exports = { subscribeToNewsletter, sendBulkNewsletter };
+    // Generate the customizable HTML content
+    const htmlContent = generateBulkNewsletterTemplate(headerText, bodyText, subText || '');
+
+    // Send emails to all subscribers
+    for (const subscriber of subscribers) {
+      await sendMail({
+        recipient: subscriber.email,
+        subject,
+        htmlContent,
+      });
+    }
+
+    // 🆕 NEW: Track this newsletter send in database
+    const newsletterSend = new NewsletterSend({
+      subject,
+      headerText,
+      bodyText,
+      subText: subText || '',
+      recipientCount: subscribers.length,
+      sentAt: new Date()
+    });
+    await newsletterSend.save();
+
+    res.status(200).json({ 
+      message: `Newsletter sent successfully to ${subscribers.length} subscribers.`,
+      subscriberCount: subscribers.length
+    });
+  } catch (error) {
+    console.error("Error sending bulk newsletter:", error);
+    res.status(500).json({ message: "Error sending newsletter.", error: error.message });
+  }
+};
+
+/**
+ * 🆕 NEW: Get newsletter statistics for CMS dashboard
+ */
+const getNewsletterStats = async (req, res) => {
+  try {
+    // Get total active subscribers
+    const subscriberCount = await NewsletterSubscriber.countDocuments({ 
+      $or: [
+        { unsubscribed: { $exists: false } },
+        { unsubscribed: false }
+      ]
+    });
+
+    // Get the last newsletter send date
+    const lastSend = await NewsletterSend.findOne().sort({ createdAt: -1 });
+    let lastSent = "Never";
+    
+    if (lastSend) {
+      const lastSendDate = new Date(lastSend.createdAt);
+      const now = new Date();
+      const diffTime = Math.abs(now - lastSendDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 1) {
+        lastSent = "Today";
+      } else if (diffDays === 1) {
+        lastSent = "1 day ago";
+      } else if (diffDays < 7) {
+        lastSent = `${diffDays} days ago`;
+      } else if (diffDays < 30) {
+        const weeks = Math.floor(diffDays / 7);
+        lastSent = weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+      } else {
+        const months = Math.floor(diffDays / 30);
+        lastSent = months === 1 ? "1 month ago" : `${months} months ago`;
+      }
+    }
+
+    // Get emails sent today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const emailsSentToday = await NewsletterSend.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: today,
+            $lt: tomorrow
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalEmails: { $sum: "$recipientCount" }
+        }
+      }
+    ]);
+
+    const emailsSentTodayCount = emailsSentToday.length > 0 ? emailsSentToday[0].totalEmails : 0;
+
+    res.status(200).json({
+      subscriberCount,
+      lastSent,
+      emailsSentToday: emailsSentTodayCount
+    });
+
+  } catch (error) {
+    console.error("Error fetching newsletter stats:", error);
+    res.status(500).json({ 
+      message: "Error fetching stats", 
+      error: error.message 
+    });
+  }
+};
+
+
+module.exports = { 
+  subscribeToNewsletter, 
+  sendBulkNewsletter, 
+  getNewsletterStats 
+};
