@@ -126,7 +126,7 @@ const getAllContactMessages = async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit)
-            .select('-userAgent -ipAddress'); // Hide sensitive info in list view
+            .select('-userAgent -ipAddress'); 
 
         const total = await Contact.countDocuments(query);
 
