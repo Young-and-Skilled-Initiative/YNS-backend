@@ -1,11 +1,22 @@
 const NewsletterSubscriber = require("../models/newsletterSubscribermodel");
-const NewsletterSend = require("../models/newsletterSendModel"); // 🆕 NEW MODEL IMPORT
+const NewsletterSend = require("../models/newsletterSendModel");
 const sendMail = require("../utils/mailer");
+const crypto = require('crypto');
 
 /**
- * Generate the welcome email HTML template
+ * Generate unsubscribe token for secure unsubscribe links
  */
-const generateWelcomeEmailTemplate = (name) => {
+const generateUnsubscribeToken = (email) => {
+  return crypto.createHash('sha256').update(email + (process.env.UNSUBSCRIBE_SECRET || 'default-secret')).digest('hex');
+};
+
+/**
+ * Generate the welcome email HTML template with working unsubscribe link
+ */
+const generateWelcomeEmailTemplate = (name, email) => {
+  const unsubscribeToken = generateUnsubscribeToken(email);
+  const unsubscribeUrl = `${process.env.BASE_URL || 'https://yourdomain.com'}/api/newsletter/unsubscribe/${unsubscribeToken}`;
+  
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -297,19 +308,19 @@ const generateWelcomeEmailTemplate = (name) => {
             </div>
             
             <div class="social-icons">
-                <a href="#" class="social-icon">
+                <a href="https://www.facebook.com/profile.php?id=61563309331437&mibextid=LQQJ4d&mibextid=LQQJ4d" class="social-icon">
                     <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244987/Facebook_hckslw.png" alt="Facebook">
                 </a>
-                <a href="#" class="social-icon">
+                <a href="https://www.linkedin.com/company/young-and-skilled-initiative/" class="social-icon">
                     <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Linkedin_fbhbqj.png" alt="LinkedIn">
                 </a>
-                <a href="#" class="social-icon">
+                <a href="https://www.instagram.com/ysinitiative?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" class="social-icon">
                     <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Instagram_jj5rv6.png" alt="Instagram">
                 </a>
             </div>
             
             <div class="footer">
-                <p class="unsubscribe">Don't want to receive these emails anymore? <a href="#">Unsubscribe here</a></p>
+                <p class="unsubscribe">Don't want to receive these emails anymore? <a href="${unsubscribeUrl}">Unsubscribe here</a></p>
                 <p class="copyright">Copyright © ${new Date().getFullYear()} Young & Skilled Initiative</p>
                 <div class="star-bottom"></div>
             </div>
@@ -321,43 +332,12 @@ const generateWelcomeEmailTemplate = (name) => {
 };
 
 /**
- * Subscribe to the newsletter.
+ * Generate the bulk newsletter HTML template with working unsubscribe link
  */
-const subscribeToNewsletter = async (req, res) => {
-  const { name, email } = req.body;
+const generateBulkNewsletterTemplate = (headerText, bodyText, subText, email) => {
+  const unsubscribeToken = generateUnsubscribeToken(email);
+  const unsubscribeUrl = `${process.env.BASE_URL || 'https://yourdomain.com'}/api/newsletter/unsubscribe/${unsubscribeToken}`;
   
-  if (!name || !email) {
-    return res.status(400).json({ message: "Name and email are required" });
-  }
-  
-  try {
-    const existingSubscriber = await NewsletterSubscriber.findOne({ email });
-    if (existingSubscriber) {
-      return res.status(409).json({ message: "Already subscribed." });
-    }
-    
-    const newSubscriber = new NewsletterSubscriber({ name, email });
-    await newSubscriber.save();
-
-    // Use the professional HTML template
-    const htmlContent = generateWelcomeEmailTemplate(name);
-
-    await sendMail({ 
-        recipient: email, 
-        subject: "Welcome to Young and Skilled Initiative! 🎉", 
-        htmlContent 
-    });
-    
-    res.status(201).json({ message: "Subscribed successfully." });
-  } catch (error) {
-    res.status(500).json({ message: "Error subscribing", error: error.message });
-  }
-};
-
-/**
- * Generate the bulk newsletter HTML template
- */
-const generateBulkNewsletterTemplate = (headerText, bodyText, subText) => {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -560,19 +540,19 @@ const generateBulkNewsletterTemplate = (headerText, bodyText, subText) => {
             </div>
             
             <div class="social-icons">
-                <a href="#" class="social-icon">
+                <a href="https://www.facebook.com/profile.php?id=61563309331437&mibextid=LQQJ4d&mibextid=LQQJ4d" class="social-icon">
                     <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244987/Facebook_hckslw.png" alt="Facebook">
                 </a>
-                <a href="#" class="social-icon">
+                <a href="https://www.linkedin.com/company/young-and-skilled-initiative/" class="social-icon">
                     <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Linkedin_fbhbqj.png" alt="LinkedIn">
                 </a>
-                <a href="#" class="social-icon">
+                <a href="https://www.instagram.com/ysinitiative?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" class="social-icon">
                     <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/Instagram_jj5rv6.png" alt="Instagram">
                 </a>
             </div>
             
             <div class="footer">
-                <p class="unsubscribe">Don't want to receive these emails anymore? <a href="#">Unsubscribe here</a></p>
+                <p class="unsubscribe">Don't want to receive these emails anymore? <a href="${unsubscribeUrl}">Unsubscribe here</a></p>
                 <p class="copyright">Copyright © ${new Date().getFullYear()} Young & Skilled Initiative</p>
                 <div class="star-bottom"></div>
             </div>
@@ -584,7 +564,50 @@ const generateBulkNewsletterTemplate = (headerText, bodyText, subText) => {
 };
 
 /**
- * Send bulk newsletters to all subscribers (🔧 UPDATED WITH TRACKING)
+ * Subscribe to the newsletter with unsubscribe token generation
+ */
+const subscribeToNewsletter = async (req, res) => {
+  const { name, email } = req.body;
+  
+  if (!name || !email) {
+    return res.status(400).json({ message: "Name and email are required" });
+  }
+  
+  try {
+    const existingSubscriber = await NewsletterSubscriber.findOne({ email });
+    if (existingSubscriber) {
+      return res.status(409).json({ message: "Already subscribed." });
+    }
+    
+    // Generate unsubscribe token
+    const unsubscribeToken = generateUnsubscribeToken(email);
+    
+    // Create new subscriber with token
+    const newSubscriber = new NewsletterSubscriber({ 
+      name, 
+      email,
+      unsubscribeToken 
+    });
+    await newSubscriber.save();
+
+    // Use the professional HTML template with working unsubscribe link
+    const htmlContent = generateWelcomeEmailTemplate(name, email);
+
+    await sendMail({ 
+        recipient: email, 
+        subject: "Welcome to Young and Skilled Initiative! 🎉", 
+        htmlContent 
+    });
+    
+    res.status(201).json({ message: "Subscribed successfully." });
+  } catch (error) {
+    console.error("Error subscribing to newsletter:", error);
+    res.status(500).json({ message: "Error subscribing", error: error.message });
+  }
+};
+
+/**
+ * Send bulk newsletters to all subscribers with personalized unsubscribe links
  */
 const sendBulkNewsletter = async (req, res) => {
   const { subject, headerText, bodyText, subText } = req.body;
@@ -609,11 +632,16 @@ const sendBulkNewsletter = async (req, res) => {
       return res.status(404).json({ message: "No active subscribers found." });
     }
 
-    // Generate the customizable HTML content
-    const htmlContent = generateBulkNewsletterTemplate(headerText, bodyText, subText || '');
-
-    // Send emails to all subscribers
+    // Send personalized emails to all subscribers
     for (const subscriber of subscribers) {
+      // Generate personalized HTML content with unique unsubscribe link
+      const htmlContent = generateBulkNewsletterTemplate(
+        headerText, 
+        bodyText, 
+        subText || '', 
+        subscriber.email
+      );
+      
       await sendMail({
         recipient: subscriber.email,
         subject,
@@ -621,7 +649,7 @@ const sendBulkNewsletter = async (req, res) => {
       });
     }
 
-    // 🆕 NEW: Track this newsletter send in database
+    // Track this newsletter send in database
     const newsletterSend = new NewsletterSend({
       subject,
       headerText,
@@ -643,7 +671,239 @@ const sendBulkNewsletter = async (req, res) => {
 };
 
 /**
- * 🆕 NEW: Get newsletter statistics for CMS dashboard
+ * Unsubscribe from newsletter via token (GET request from email link)
+ */
+const unsubscribeViaToken = async (req, res) => {
+  const { token } = req.params;
+  
+  if (!token) {
+    return res.status(400).send(`
+      <html>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h2>Invalid Unsubscribe Link</h2>
+          <p>This unsubscribe link is not valid.</p>
+        </body>
+      </html>
+    `);
+  }
+  
+  try {
+    const subscriber = await NewsletterSubscriber.findOne({ 
+      unsubscribeToken: token
+    });
+    
+    if (!subscriber) {
+      return res.status(404).send(`
+        <html>
+          <head>
+            <title>Invalid Unsubscribe Link</title>
+            <style>
+              body { 
+                font-family: 'Manrope', Arial, sans-serif; 
+                text-align: center; 
+                padding: 50px; 
+                background-color: #f5f5f5; 
+              }
+              .container { 
+                max-width: 500px; 
+                margin: 0 auto; 
+                background: white; 
+                padding: 40px; 
+                border-radius: 10px; 
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+              }
+              h2 { color: #d32f2f; margin-bottom: 20px; }
+              p { color: #666; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>❌ Invalid Unsubscribe Link</h2>
+              <p>This unsubscribe link is not valid or has expired.</p>
+              <p>If you continue to receive emails, please contact our support team.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+    
+    if (subscriber.unsubscribed) {
+      return res.status(200).send(`
+        <html>
+          <head>
+            <title>Already Unsubscribed</title>
+            <style>
+              body { 
+                font-family: 'Manrope', Arial, sans-serif; 
+                text-align: center; 
+                padding: 50px; 
+                background-color: #f5f5f5; 
+              }
+              .container { 
+                max-width: 500px; 
+                margin: 0 auto; 
+                background: white; 
+                padding: 40px; 
+                border-radius: 10px; 
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+              }
+              h2 { color: #2d5f4f; margin-bottom: 20px; }
+              p { color: #666; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>ℹ️ Already Unsubscribed</h2>
+              <p>You have already been removed from the Young & Skilled Initiative newsletter.</p>
+              <p>You should not receive any further emails from us.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+    
+    // Update subscriber status
+    await NewsletterSubscriber.updateOne(
+      { _id: subscriber._id }, 
+      { 
+        unsubscribed: true, 
+        unsubscribedAt: new Date() 
+      }
+    );
+    
+    // Render beautiful success page
+    res.status(200).send(`
+      <html>
+        <head>
+          <title>Unsubscribed Successfully</title>
+          <style>
+            body { 
+              font-family: 'Manrope', Arial, sans-serif; 
+              text-align: center; 
+              padding: 50px; 
+              background: linear-gradient(135deg, #f5f5f5 0%, #e8f5e8 100%);
+              margin: 0;
+            }
+            .container { 
+              max-width: 500px; 
+              margin: 0 auto; 
+              background: white; 
+              padding: 40px; 
+              border-radius: 15px; 
+              box-shadow: 0 8px 25px rgba(0,0,0,0.1); 
+            }
+            h2 { 
+              color: #2d5f4f; 
+              margin-bottom: 20px; 
+              font-size: 24px;
+            }
+            p { 
+              color: #666; 
+              line-height: 1.6; 
+              margin-bottom: 15px;
+            }
+            .logo {
+              margin: 20px 0;
+            }
+            .logo img {
+              height: 50px;
+            }
+            .success-icon {
+              font-size: 48px;
+              margin-bottom: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="success-icon">✅</div>
+            <h2>Successfully Unsubscribed</h2>
+            <p>You have been removed from the Young & Skilled Initiative newsletter.</p>
+            <p>We're sorry to see you go! If you change your mind, you can always subscribe again on our website.</p>
+            <div class="logo">
+              <img src="https://res.cloudinary.com/dwjnkuvqv/image/upload/v1748244988/logo_bydem0.png" alt="Young & Skilled Logo">
+            </div>
+            <p style="font-size: 12px; color: #999;">Thank you for being part of our community.</p>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error("Error unsubscribing via token:", error);
+    res.status(500).send(`
+      <html>
+        <head>
+          <title>Error</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 50px; 
+              background-color: #f5f5f5; 
+            }
+            .container { 
+              max-width: 500px; 
+              margin: 0 auto; 
+              background: white; 
+              padding: 40px; 
+              border-radius: 10px; 
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            }
+            h2 { color: #d32f2f; margin-bottom: 20px; }
+            p { color: #666; line-height: 1.6; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h2>⚠️ Error</h2>
+            <p>There was an error processing your unsubscribe request.</p>
+            <p>Please try again later or contact our support team.</p>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+};
+
+/**
+ * Manual unsubscribe via API (POST request)
+ */
+const unsubscribeFromNewsletter = async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+  
+  try {
+    const subscriber = await NewsletterSubscriber.findOne({ email });
+    
+    if (!subscriber) {
+      return res.status(404).json({ message: "Email not found in our records" });
+    }
+    
+    if (subscriber.unsubscribed) {
+      return res.status(409).json({ message: "Already unsubscribed" });
+    }
+    
+    // Update subscriber status
+    await NewsletterSubscriber.updateOne(
+      { email }, 
+      { 
+        unsubscribed: true, 
+        unsubscribedAt: new Date() 
+      }
+    );
+    
+    res.status(200).json({ message: "Successfully unsubscribed from newsletter" });
+  } catch (error) {
+    console.error("Error unsubscribing:", error);
+    res.status(500).json({ message: "Error unsubscribing", error: error.message });
+  }
+};
+
+/**
+ * Get comprehensive newsletter statistics for CMS dashboard
  */
 const getNewsletterStats = async (req, res) => {
   try {
@@ -654,6 +914,14 @@ const getNewsletterStats = async (req, res) => {
         { unsubscribed: false }
       ]
     });
+
+    // Get total unsubscribed count
+    const unsubscribedCount = await NewsletterSubscriber.countDocuments({ 
+      unsubscribed: true 
+    });
+
+    // Get total subscriber count (active + unsubscribed)
+    const totalSubscribers = await NewsletterSubscriber.countDocuments({});
 
     // Get the last newsletter send date
     const lastSend = await NewsletterSend.findOne().sort({ createdAt: -1 });
@@ -705,10 +973,28 @@ const getNewsletterStats = async (req, res) => {
 
     const emailsSentTodayCount = emailsSentToday.length > 0 ? emailsSentToday[0].totalEmails : 0;
 
+    // Calculate unsubscribe rate
+    const unsubscribeRate = totalSubscribers > 0 ? ((unsubscribedCount / totalSubscribers) * 100).toFixed(2) : 0;
+
+    // Get newsletter send history (last 5)
+    const recentSends = await NewsletterSend.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('subject recipientCount sentAt createdAt');
+
     res.status(200).json({
       subscriberCount,
+      unsubscribedCount,
+      totalSubscribers,
+      unsubscribeRate: `${unsubscribeRate}%`,
       lastSent,
-      emailsSentToday: emailsSentTodayCount
+      emailsSentToday: emailsSentTodayCount,
+      recentSends: recentSends.map(send => ({
+        subject: send.subject,
+        recipientCount: send.recipientCount,
+        sentAt: send.sentAt || send.createdAt,
+        date: send.createdAt
+      }))
     });
 
   } catch (error) {
@@ -720,9 +1006,72 @@ const getNewsletterStats = async (req, res) => {
   }
 };
 
+/**
+ * Get list of all subscribers (with pagination and filtering)
+ */
+const getSubscribers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, status = 'all' } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build filter based on status
+    let filter = {};
+    if (status === 'active') {
+      filter = { 
+        $or: [
+          { unsubscribed: { $exists: false } },
+          { unsubscribed: false }
+        ]
+      };
+    } else if (status === 'unsubscribed') {
+      filter = { unsubscribed: true };
+    }
+
+    // Get subscribers with pagination
+    const subscribers = await NewsletterSubscriber.find(filter)
+      .select('name email unsubscribed createdAt unsubscribedAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    // Get total count for pagination
+    const totalCount = await NewsletterSubscriber.countDocuments(filter);
+    const totalPages = Math.ceil(totalCount / limitNumber);
+
+    res.status(200).json({
+      subscribers: subscribers.map(sub => ({
+        id: sub._id,
+        name: sub.name,
+        email: sub.email,
+        status: sub.unsubscribed ? 'unsubscribed' : 'active',
+        subscribedAt: sub.createdAt,
+        unsubscribedAt: sub.unsubscribedAt || null
+      })),
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalCount,
+        hasNext: pageNumber < totalPages,
+        hasPrev: pageNumber > 1
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching subscribers:", error);
+    res.status(500).json({ 
+      message: "Error fetching subscribers", 
+      error: error.message 
+    });
+  }
+};
 
 module.exports = { 
   subscribeToNewsletter, 
   sendBulkNewsletter, 
-  getNewsletterStats 
+  getNewsletterStats,
+  unsubscribeViaToken,
+  unsubscribeFromNewsletter,
+  getSubscribers
 };
