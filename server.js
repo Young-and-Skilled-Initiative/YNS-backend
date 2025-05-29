@@ -24,11 +24,22 @@ app.set('trust proxy', 1);
 // SECURITY MIDDLEWARE
 app.use(helmet());
 
-// CORS MIDDLEWARE (updated with better configuration)
+// CORS MIDDLEWARE (FIXED - Updated with production frontend URL)
+const allowedOrigins = [
+    'https://yns-main.vercel.app',  // Your production frontend
+    'http://localhost:3000',        // Local development
+    'http://localhost:3001'         // Local development alt port
+];
+
+// Add FRONTEND_URL if it exists and isn't already in the array
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001'],
+    origin: allowedOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
