@@ -26,9 +26,10 @@ app.use(helmet());
 
 // CORS MIDDLEWARE (FIXED - Updated with production frontend URL)
 const allowedOrigins = [
-    'https://yns-main.vercel.app',  // Your production frontend
-    'http://localhost:3000',        // Local development
-    'http://localhost:3001'         // Local development alt port
+    'https://www.youngandskilled.org', // Your current production frontend
+    'https://yns-main.vercel.app',     // Your old frontend (if still needed)
+    'http://localhost:3000',           // Local development
+    'http://localhost:3001'            // Local development alt port
 ];
 
 // Add FRONTEND_URL if it exists and isn't already in the array
